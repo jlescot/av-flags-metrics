@@ -1,0 +1,20 @@
+{
+  "name": "av-flags-metrics",
+  "version": "0.0.1",
+  "description": "Provide a set of utility functions to query and aggregate user flags",
+  "main": "index.js",
+  "keywords": [
+    "airvantage",
+    "dynamodb",
+    "metrics",
+    "flags"
+  ],
+  "author": "Jacques LESCOT <jacques.lescot@sierrawireless.com>",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.2.40",
+    "bluebird": "^3.3.3",
+    "lodash": "^4.6.0",
+    "ora": "^0.1.1"
+  }
+}
