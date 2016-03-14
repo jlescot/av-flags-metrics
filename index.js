@@ -35,41 +35,41 @@ function getAllCompanyProfilesReferenced(flagsHelper) {
     });
 }
 
-// ALMS Dashboard - widget metrics: Number of widgets per ALMS user (https://issues.sierrawireless.com/browse/PLTFRS-5284)
-// ALMS Dashboard - widget metrics: Widget deployment rate (https://issues.sierrawireless.com/browse/PLTFRS-5285)
+// Dashboard - widget metrics: Number of widgets per user (https://issues.sierrawireless.com/browse/PLTFRS-5284)
+// Dashboard - widget metrics: Widget deployment rate (https://issues.sierrawireless.com/browse/PLTFRS-5285)
 // 
-// Compute the average # of widgets deployed as well as the deployment rate for each of the current widgets available in the start page dashboard for ALMS users.
+// Compute the average # of widgets deployed as well as the deployment rate for each of the current widgets available in the start page dashboard for users and a given offer.
 // 
-function getALMSDashboardMetrics(flagsHelper) {
+function getDashboardMetrics(flagsHelper, accountType) {
     var spinner = new Ora({
         color: "yellow"
     });
     spinner.start();
 
-    spinner.text = "Step 1/4 - Retrieving 'AirLink' CompanyProfile...";
-    return flagsHelper.getCompanyProfileContents("AirLink").then(function(contents) {
+    spinner.text = "Step 1/4 - Retrieving '" + accountType + "' CompanyProfile...";
+    return flagsHelper.getCompanyProfileContents(accountType).then(function(contents) {
         if (contents.Items.length === 0) {
-            console.error("\033[1m\033[31mUnable to find the 'AirLink' CompanyProfile! Please contact the R&D team.");
+            console.error("\033[1m\033[31mUnable to find the '" + accountType + "' CompanyProfile! Please contact the R&D team.");
             spinner.stop();
             process.exit(1);
         }
         var defaultDashboardConfiguration = JSON.parse(contents.Items[0].startDashboard_widgetsOrder);
 
-        spinner.text = "Step 2/4 - Retrieving Companies using the 'AirLink' CompanyProfile...";
-        return flagsHelper.getCompaniesUsingCompanyProfile("AirLink").then(function(companies) {
-            var airLinkCompanies = _.map(companies.Items, "CompanyUid");
+        spinner.text = "Step 2/4 - Retrieving Companies using the '" + accountType + "' CompanyProfile...";
+        return flagsHelper.getCompaniesUsingCompanyProfile(accountType).then(function(companies) {
+            var relevantCompanies = _.map(companies.Items, "CompanyUid");
 
             spinner.text = "Step 3/4 - Retrieving all UserFlags with the key 'startDashboard_widgetsOrder'...";
             return flagsHelper.getAllUserFlagsWithKey("startDashboard_widgetsOrder").then(function(userFlags) {
 
                 spinner.text = "Step 4/4 - Computing results...";
-                // Filter only UserFlags that are associated to an AirLink CompanyProfile
-                var airLinkUserFlags = _.filter(userFlags.Items, function(flags) {
+                // Filter only UserFlags that are associated to the given CompanyProfile
+                var relevantUserFlags = _.filter(userFlags.Items, function(flags) {
                     var userAndCompanyInfo = flags.UserAndCompanyUid.split("_");
-                    return userAndCompanyInfo.length === 2 && _.includes(airLinkCompanies, userAndCompanyInfo[1]);
+                    return userAndCompanyInfo.length === 2 && _.includes(relevantCompanies, userAndCompanyInfo[1]);
                 });
 
-                // Rework the 'rough' list of UserFlags so that for each ALMS user, we got the list of widget identifiers only.
+                // Rework the 'rough' list of UserFlags so that for each user, we got the list of widget identifiers only.
                 // The result would be an array like the following:
                 // [ [ "offerIntro", "register", "alertRules", "commStatusMap" ],
                 //   [ "register", "alertRules", "userDocumentation", "commStatus", "commStatusMap" ],
@@ -77,7 +77,7 @@ function getALMSDashboardMetrics(flagsHelper) {
                 //   [ "register", "alertRules", "userDocumentation", "commStatus" ],
                 //   [ "offerIntro", "systemType", "signalStrength", "serviceType", "commStatusMap" ],
                 //   [ "monitor", "alerts", "userDocumentation", "developerDocumentation", "commStatus" ] ]
-                var parsedFlags = _.map(airLinkUserFlags, function(flags) {
+                var parsedFlags = _.map(relevantUserFlags, function(flags) {
                     // Since the value is stored as String, we first need to parse it as a JSON object
                     var jsonValue = JSON.parse(flags.startDashboard_widgetsOrder);
                     // The 'startDashboard_widgetsOrder' flag contents is an array composed of:
@@ -88,7 +88,7 @@ function getALMSDashboardMetrics(flagsHelper) {
                     });
                 });
 
-                // We should then ignore UserFlags with the exact same configuration (same widgets, ordered the same way) as defined in the 'AirLink' CompanyProfile
+                // We should then ignore UserFlags with the exact same configuration (same widgets, ordered the same way) as defined in the given CompanyProfile
                 var customizedDashboards = _.reject(parsedFlags, function(flags) {
                     return _.isEqual(flags, defaultDashboardConfiguration);
                 });
@@ -122,11 +122,11 @@ function getALMSDashboardMetrics(flagsHelper) {
                 console.log("\n************************************************************************");
                 console.log("\033[1mSUMMARY for", targetEnv.toUpperCase(), "environment\033[0m");
                 console.log("\n");
-                console.log("- Number of Companies using the 'AirLink' CompanyProfile          :", companies.Items.length);
+                console.log("- Number of Companies using the '" + accountType + "' CompanyProfile          :", companies.Items.length);
                 console.log("- Number of UserFlags with the flag 'startDashboard_widgetsOrder' :", userFlags.Items.length);
-                console.log("- Number of UserFlags associated to an 'AirLink' CompanyProfile   :", airLinkUserFlags.length, "(and only\033[1m", customizedDashboards.length, "\033[0mare different from the default configuration)");
+                console.log("- Number of UserFlags associated to an '" + accountType + "' CompanyProfile   :", relevantUserFlags.length, "(and only\033[1m", customizedDashboards.length, "\033[0mare different from the default configuration)");
                 console.log("\n");
-                console.log("\033[1m- Number of widgets per ALMS user:\033[0m\n   -", countByNbWidgets.join("\n   - "));
+                console.log("\033[1m- Number of widgets per " + accountType + " user:\033[0m\n   -", countByNbWidgets.join("\n   - "));
                 console.log("\n");
                 console.log("\033[1m- Widget deployment rate:\033[0m\n   -", countByWidgetType.join("\n   - "));
                 console.log("************************************************************************");
@@ -136,8 +136,6 @@ function getALMSDashboardMetrics(flagsHelper) {
         });
     });
 }
-
-
 
 //--------------------------------
 // Here starts the magic script !!
@@ -170,11 +168,13 @@ if (process.argv.length > 2 && _.includes(SUPPORTED_TARGET_ENVS, process.argv[2]
     var flagsHelper = require("./lib/flagsHelper")(targetEnv, docClient);
 
     // Launch all the magic !!
-    getAllCompanyProfilesReferenced(flagsHelper).then(function() {
-        getALMSDashboardMetrics(flagsHelper).then(function() {
-            process.exit();
+    getAllCompanyProfilesReferenced(flagsHelper)
+        .then(function() {
+            return getDashboardMetrics(flagsHelper, "AirLink");
+        })
+        .then(function() {
+            return getDashboardMetrics(flagsHelper, "UFOTA");
         });
-    });
 } else {
     console.error("\033[1m\033[31mYou must specify the target environment.\n\033[33mSupported values are", SUPPORTED_TARGET_ENVS, "\033[0m");
     process.exit(1);
