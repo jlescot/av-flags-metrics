@@ -165,16 +165,66 @@ if (process.argv.length > 2 && _.includes(SUPPORTED_TARGET_ENVS, process.argv[2]
 
     var docClient = new AWS.DynamoDB.DocumentClient();
 
-    var flagsHelper = require("./lib/flagsHelper")(targetEnv, docClient);
+
 
     // Launch all the magic !!
-    getAllCompanyProfilesReferenced(flagsHelper)
-        .then(function() {
-            return getDashboardMetrics(flagsHelper, "AirLink");
-        })
-        .then(function() {
-            return getDashboardMetrics(flagsHelper, "UFOTA");
+
+    if (process.argv.length > 3 && process.argv[3] === "listAVCCompanies") {
+        var migrateAVCUserFlags = require("./commands/migrateAVCUserFlags")(targetEnv, docClient);
+        migrateAVCUserFlags.listAVCCompanies().then(function(companyIdentifiers) {
+            console.log("\033[1mAll AVC Company identifiers\033[0m");
+            console.log(companyIdentifiers.join("\n"));
         });
+    } else if (process.argv.length > 4 && process.argv[3] === "listUserFlagsForCompany") {
+        var migrateAVCUserFlags = require("./commands/migrateAVCUserFlags")(targetEnv, docClient);
+        migrateAVCUserFlags.getAllUserFlagsForCompany(process.argv[4]).then(function(userAndCompanyFlagsIdentifier) {
+            console.log("\033[1mAll UserFlags\033[0m");
+            console.log(userAndCompanyFlagsIdentifier.join("\n"));
+        });
+    } else if (process.argv.length > 4 && process.argv[3] === "migrateUserFlags") {
+        var migrateAVCUserFlags = require("./commands/migrateAVCUserFlags")(targetEnv, docClient);
+        migrateAVCUserFlags.migrateFor(process.argv[4]);
+    } else if (process.argv[3] === "migrateAllUserFlagsForCompany") {
+        // Given an AVC Company identifier, migrate all the UserFlags that belong to it
+        var migrateAVCUserFlags = require("./commands/migrateAVCUserFlags")(targetEnv, docClient);
+        return migrateAVCUserFlags.getAllUserFlagsForCompany(process.argv[4]).then(function(userAndCompanyFlagsIdentifiers) {
+            return BPromise.each(userAndCompanyFlagsIdentifiers, function(userAndCompanyFlagsIdentifier) {
+                return migrateAVCUserFlags.migrateFor(userAndCompanyFlagsIdentifier);
+            });
+        });
+    } else if (process.argv[3] === "migrateAllUserFlagsForAllAVCCompanies") {
+        // /!\ This will migrate all UserFlags for all Companies that are considered as AVC
+        var migrateAVCUserFlags = require("./commands/migrateAVCUserFlags")(targetEnv, docClient);
+
+        migrateAVCUserFlags.listAVCCompanies().then(function(companyIdentifiers) {
+            return BPromise.each(companyIdentifiers, function(companyId) {
+                return migrateAVCUserFlags.getAllUserFlagsForCompany(companyId).then(function(userAndCompanyFlagsIdentifiers) {
+                    return BPromise.each(userAndCompanyFlagsIdentifiers, function(userAndCompanyFlagsIdentifier) {
+                        return migrateAVCUserFlags.migrateFor(userAndCompanyFlagsIdentifier);
+                    });
+                });
+            });
+        });
+    } else {
+        var flagsHelper = require("./lib/flagsHelper")(targetEnv, docClient);
+
+        getAllCompanyProfilesReferenced(flagsHelper)
+            .then(function() {
+                return getDashboardMetrics(flagsHelper, "AirLink");
+            })
+            .then(function() {
+                return getDashboardMetrics(flagsHelper, "UFOTA");
+            })
+            .then(function() {
+                return getDashboardMetrics(flagsHelper, "AVEP");
+            })
+            .then(function() {
+                return getDashboardMetrics(flagsHelper, "CONNECTIVITY");
+            })
+            .then(function() {
+                return getDashboardMetrics(flagsHelper, "AVC");
+            });
+    }
 } else {
     console.error("\033[1m\033[31mYou must specify the target environment.\n\033[33mSupported values are", SUPPORTED_TARGET_ENVS, "\033[0m");
     process.exit(1);

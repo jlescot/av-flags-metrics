@@ -29,8 +29,11 @@ Getting started
 ---------------
 
 You can launch the script using the following command, replacing <env> by one of the following values: _na_, _eu_, _dev1_, _qa_ or _LOCAL_
+<command> is an optional parameter (Currently it is mainly used to migrate AVC _UserAndCompany_ Flags). Supported values are: `listAVCCompanies`, `listUserFlagsForCompany`, `migrateUserFlags`, `migrateAllUserFlagsForCompany` or `migrateAllUserFlagsForAllAVCCompanies`
+:warning: **Any `migrateXXX` must be run only once for a given _UserAndCompanyUid_ !**
+<commandParameters> is also optional and depends on the <command> specified above
 ```sh
-$ node index <env>
+$ node index <env> <command> <commandParameters>
 ```
 
 You should get reports as following:
